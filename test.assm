@@ -1,0 +1,66 @@
+call INPUT
+call TESTCMP
+call TESTADD
+call TESTSUB
+call TESTMUL
+call TESTDIV
+hlt
+
+INPUT:
+    in 
+    push r0
+    pop [0]
+    in
+    push r0
+    pop [1]
+    ret
+
+TESTCMP:
+    push [0]
+    push [1] 
+    cmp
+    je L1
+    push 0
+    pop r0
+    out
+    jmp L2
+L1:
+    push 1
+    pop r0 
+    out
+L2:
+    ret
+
+TESTADD:
+    push [0]
+    push [1]
+    add
+    pop r0
+    out
+    ret
+
+TESTSUB:
+    push [0]
+    push [1]
+    sub
+    pop r0
+    out
+    ret
+
+TESTMUL:
+    push [0]
+    push [1]
+    mul
+    pop r0
+    out
+    ret
+
+TESTDIV:
+    push [0]
+    push [1]
+    div
+    pop r0
+    out
+    pop r0
+    out
+    ret
