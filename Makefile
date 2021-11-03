@@ -1,7 +1,10 @@
 install:
-	make -C src/ 
-	mv src/assm bin/assm
-	mv src/proc bin/proc
+	make -C src/assm 
+	mv src/assm/assm bin/assm
+	make -C src/proc
+	mv src/proc/proc bin/proc
 
 clean:
-	make -C src/ clean
+	make -C src/assm clean
+	make -C src/proc clean
+

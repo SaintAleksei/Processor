@@ -1,6 +1,5 @@
 #include "setup.h"
 #include "assembler.h"
-#include "cmdtable.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,6 +14,51 @@ static int  label_handler   (assm_t *assm);
 static int  command_handler (assm_t *assm);
 static int  argno_handler   (assm_t *assm, uint8_t cmd);
 static int  arglb_handler   (assm_t *assm, uint8_t cmd);
+
+static int push_handler (assm_t *assm);
+static int pop_handler  (assm_t *assm);
+static int add_handler  (assm_t *assm);
+static int sub_handler  (assm_t *assm);
+static int mul_handler  (assm_t *assm);
+static int div_handler  (assm_t *assm);
+static int cmp_handler  (assm_t *assm);
+static int hlt_handler  (assm_t *assm);
+static int ret_handler  (assm_t *assm);
+static int in_handler   (assm_t *assm);
+static int out_handler  (assm_t *assm);
+static int jmp_handler  (assm_t *assm);
+static int call_handler (assm_t *assm);
+static int je_handler   (assm_t *assm);
+static int jl_handler   (assm_t *assm);
+static int jle_handler  (assm_t *assm);
+static int jmt_handler  (assm_t *assm);
+static int jfl_handler  (assm_t *assm);
+
+static const struct assm_cmdtable_elem
+{
+    const char *name;
+    int       (*handler) (assm_t *assm);
+} cmdtable[PROC_CMDCOUNT] =
+{
+    {"push", push_handler},
+    {"pop" , pop_handler },
+    {"add" , add_handler },
+    {"sub" , sub_handler },
+    {"mul" , mul_handler },
+    {"div" , div_handler },
+    {"cmp" , cmp_handler },
+    {"hlt" , hlt_handler },
+    {"ret" , ret_handler },
+    {"in"  , in_handler  },
+    {"out" , out_handler },
+    {"jmp" , jmp_handler },
+    {"call", call_handler},
+    {"je"  , je_handler  },
+    {"jl"  , jl_handler  },
+    {"jle" , jle_handler },
+    {"jmt" , jmt_handler },
+    {"jfl" , jfl_handler },
+};
 
 int assm_create (assm_t *assm, const char *name)
 {
@@ -394,10 +438,8 @@ static int command_handler (assm_t *assm)
     return EXIT_SUCCESS;
 }
 
-int push_handler (void *args)
+int push_handler (assm_t *assm)
 {
-    assm_t *assm = args;
-
     assert (assm);
     assert (!assm->error.err);
     assert (assm->text.word);
@@ -490,10 +532,8 @@ int push_handler (void *args)
     return EXIT_SUCCESS;
 }
 
-int pop_handler (void *args)
+int pop_handler (assm_t *assm)
 {
-    assm_t *assm = args;
-
     assert (assm);
     assert (!assm->error.err);
     assert (assm->text.word);
@@ -645,72 +685,82 @@ int arglb_handler (assm_t *assm, uint8_t cmd)
     return EXIT_FAILURE;
 }
 
-int add_handler (void *arg)
+int add_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_ADD);
+    return argno_handler (assm, CMD_ADD);
 }
 
-int sub_handler (void *arg)
+int sub_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_SUB);
+    return argno_handler (assm, CMD_SUB);
 }
 
-int mul_handler (void *arg)
+int mul_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_MUL);
+    return argno_handler (assm, CMD_MUL);
 }
 
-int div_handler (void *arg)
+int div_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_DIV);
+    return argno_handler (assm, CMD_DIV);
 }
 
-int cmp_handler (void *arg)
+int cmp_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_CMP);
+    return argno_handler (assm, CMD_CMP);
 }
 
-int hlt_handler (void *arg)
+int hlt_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_HLT);
+    return argno_handler (assm, CMD_HLT);
 }
 
-int ret_handler (void *arg)
+int ret_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_RET);
+    return argno_handler (assm, CMD_RET);
 }
 
-int in_handler (void *arg)
+int in_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_IN);
+    return argno_handler (assm, CMD_IN);
 }
 
-int out_handler (void *arg)
+int out_handler (assm_t *assm)
 {
-    return argno_handler (arg, CMD_OUT);
+    return argno_handler (assm, CMD_OUT);
 }
 
-int jmp_handler (void *arg)
+int jmp_handler (assm_t *assm)
 {
-    return arglb_handler (arg, CMD_JMP);
+    return arglb_handler (assm, CMD_JMP);
 }
 
-int call_handler (void *arg)
+int call_handler (assm_t *assm)
 {
-    return arglb_handler (arg, CMD_CALL);
+    return arglb_handler (assm, CMD_CALL);
 }
 
-int je_handler (void *arg)
+int je_handler (assm_t *assm)
 {
-    return arglb_handler (arg, CMD_JE);
+    return arglb_handler (assm, CMD_JE);
 }
 
-int jl_handler (void *arg)
+int jl_handler (assm_t *assm)
 {
-    return arglb_handler (arg, CMD_JL);
+    return arglb_handler (assm, CMD_JL);
 }
 
-int jle_handler (void *arg)
+int jle_handler (assm_t *assm)
 {
-    return arglb_handler (arg, CMD_JLE);
+    return arglb_handler (assm, CMD_JLE);
+}
+
+int jmt_handler (assm_t *assm)
+{
+    return arglb_handler (assm, CMD_JMT);
+}
+
+int jfl_handler (assm_t *assm)
+{
+    return arglb_handler (assm, CMD_JFL);
 }

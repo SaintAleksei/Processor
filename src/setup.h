@@ -5,22 +5,25 @@
 
 enum CMD_CODES
 {
-    CMD_HLT = 0x0,
-    CMD_ADD = 0x1,
-    CMD_SUB = 0x2,
-    CMD_MUL = 0x3,
-    CMD_DIV = 0x4,
-    CMD_CMP = 0x5,
-    CMD_RET = 0x6,
-    CMD_JMP = 0x7, 
-    CMD_CALL = 0x8,
-    CMD_JE = 0x9,
-    CMD_JL = 0x10,
-    CMD_JLE = 0x11,
-    CMD_PUSH = 0x12,
-    CMD_POP = 0x13,
-    CMD_IN = 0x14,
-    CMD_OUT = 0x15,
+    CMD_HLT,
+    CMD_ADD,
+    CMD_SUB,
+    CMD_MUL,
+    CMD_DIV,
+    CMD_CMP,
+    CMD_RET,
+    CMD_JMP,
+    CMD_CALL,
+    CMD_JE,
+    CMD_JL,
+    CMD_JLE,
+    CMD_JMT,
+    CMD_JFL,
+    CMD_PUSH,
+    CMD_POP,
+    CMD_IN,
+    CMD_OUT,
+    CMD_UNKN = 0xFC,
 };
 
 enum CMD_FLAGS
@@ -39,7 +42,6 @@ enum PROC_CONSTS
 
 union val
 {
-    char     str[8];
     int8_t   v8;
     uint8_t  vu8;
     int16_t  v16;
@@ -49,6 +51,7 @@ union val
     int64_t  v64;
     uint64_t vu64;
     double   vdb;
+    char     str[8];
 };
 
 #endif

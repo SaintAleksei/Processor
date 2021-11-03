@@ -2,21 +2,23 @@
 #define PROCESSOR_H_INCLUDED
 
 #include "setup.h"
+#include <stdio.h>
 
 enum PROC_ERR
 {
     PROC_NOERR, 
-    PROC_ERRCOMMAND,
     PROC_ERRCREATE,
     PROC_ERRIP, 
-    PROC_ERRSPINT,
-    PROC_ERRSPDB,
-    PROC_ERRSPRET,
+    PROC_ERRUNKN,
+    PROC_ERRPUSH,
+    PROC_ERRPOP,
     PROC_ERRADD,
     PROC_ERRSUB,
     PROC_ERRMUL,
     PROC_ERRDIV,
     PROC_ERRCMP,
+    PROC_ERRCALL,
+    PROC_ERRRET,
 };
 
 enum PROC_STAT
@@ -24,6 +26,11 @@ enum PROC_STAT
     PROC_STHLT,
     PROC_STRUN,
     PROC_STERR,
+};
+
+enum PROC_OPT
+{
+    PROC_OPTLOG = 0x01,
 };
 
 enum PROC_CMPVAL
@@ -42,14 +49,15 @@ struct proc_code
 
 struct proc_stack
 {
-    int64_t   stkint[PROC_STKSIZE];
-    uint64_t  stkret[PROC_STKSIZE];
+    int64_t  *stkint;
+    uint64_t *stkret;
     uint64_t  spint;
     uint64_t  spret;
 };
 
 struct proc_cmd
 {
+    uint8_t   id;
     uint8_t   code;
     uint8_t   flgreg;
     uint8_t   flgmem;
@@ -72,6 +80,7 @@ typedef struct processor
     enum   PROC_CMPVAL   cmp;
     enum   PROC_STAT     status;
     struct proc_error    error;
+    uint8_t              options;
     FILE                *log;
 } proc_t;
 
