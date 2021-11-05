@@ -3,35 +3,35 @@
 
 #include <stdint.h>
 
-#define PROC_GENCODE\
-    PROC_GENCMD(push, CMD_PUSH)\
-    PROC_GENCMD(pop , CMD_POP )\
-    PROC_GENCMD(add , CMD_ADD )\
-    PROC_GENCMD(sub , CMD_SUB )\
-    PROC_GENCMD(mul , CMD_MUL )\
-    PROC_GENCMD(div , CMD_DIV )\
-    PROC_GENCMD(ret , CMD_RET )\
-    PROC_GENCMD(hlt , CMD_HLT )\
-    PROC_GENCMD(jmp , CMD_JMP )\
-    PROC_GENCMD(call, CMD_CALL)\
-    PROC_GENCMD(je  , CMD_JE  )\
-    PROC_GENCMD(jl  , CMD_JL  )\
-    PROC_GENCMD(jle , CMD_JLE )\
-    PROC_GENCMD(jmt , CMD_JMT )\
-    PROC_GENCMD(jfl , CMD_JFL )\
-    PROC_GENCMD(in  , CMD_IN  )\
-    PROC_GENCMD(out , CMD_OUT )\
+#define PROC_GEN_CODE\
+    PROC_GEN_CMD(push, CMD_PUSH, pushtype)\
+    PROC_GEN_CMD(pop , CMD_POP , poptype)\
+    PROC_GEN_CMD(add , CMD_ADD , pushtype)\
+    PROC_GEN_CMD(sub , CMD_SUB , pushtype)\
+    PROC_GEN_CMD(mul , CMD_MUL , pushtype)\
+    PROC_GEN_CMD(div , CMD_DIV , pushtype)\
+    PROC_GEN_CMD(mod , CMD_MOD , pushtype)\
+    PROC_GEN_CMD(cmp , CMD_CMP , pushtype)\
+    PROC_GEN_CMD(ret , CMD_RET , stdtype)\
+    PROC_GEN_CMD(hlt , CMD_HLT , stdtype)\
+    PROC_GEN_CMD(jmp , CMD_JMP , jmptype)\
+    PROC_GEN_CMD(call, CMD_CALL, calltype)\
+    PROC_GEN_CMD(je  , CMD_JE  , jmptype)\
+    PROC_GEN_CMD(jl  , CMD_JL  , jmptype)\
+    PROC_GEN_CMD(jle , CMD_JLE , jmptype)\
+    PROC_GEN_CMD(in  , CMD_IN  , stdtype)\
+    PROC_GEN_CMD(out , CMD_OUT , stdtype)\
 
-#define PROC_GENCMD(cmd, CODE)\
+#define PROC_GEN_CMD(cmd, CODE, TYPE)\
     CODE,
 
 enum PROC_CMDCODES
 {
-    PROC_GENCODE
+    PROC_GEN_CODE
     CMD_UNKN = 0xFC,
 };
 
-#undef PROC_GENCMD
+#undef PROC_GEN_CMD
 
 enum PROC_CMDFLAGS
 {

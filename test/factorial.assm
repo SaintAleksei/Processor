@@ -7,34 +7,31 @@ out
 hlt
 
 func FACTORIAL
-    pop r1
-    push r1
-    push 0
+    cmp 0
     jl L1
-    push r1
-    push 0
     je L2
-    push r1
-    push 1
+    cmp 1
     je L3
-    push r1
-    push r1
-    push 1
-    sub
+    pop r0
+    push r0
+    push r0
+    sub 1
     call FACTORIAL
-    push r128    
-    mul
+    mul r128
     pop r128
     ret
 label L1
     push -1
     pop r128
+    pop
     ret
 label L2
     push 0
     pop r128
+    pop
     ret
 label L3
     push 1
     pop r128
+    pop
     ret

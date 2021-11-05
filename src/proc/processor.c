@@ -16,22 +16,19 @@ static void cmd_log   (proc_t *proc);
 static int  unkn_exec (proc_t *proc);
 static void unkn_log  (proc_t *proc);
 
-#define PROC_GENCMD(name, CODE)\
-static int name##_exec (proc_t *proc);
+#define PROC_GEN_CMD(name, CODE, TYPE)\
+    static int name##_exec (proc_t *proc);
 
-PROC_GENCODE
+PROC_GEN_CODE
 
-#undef PROC_GENCMD
+#undef PROC_GEN_CMD
 
-#define PROC_GENCMD(name, CODE)\
-static void name##_log (proc_t *proc);
+#define PROC_GEN_CMD(name, CODE, TYPE)\
+    static void name##_log (proc_t *proc);
 
-PROC_GENCODE
+PROC_GEN_CODE
 
-#undef PROC_GENCMD
-
-#define PROC_GENCMD(name, CODE)\
-    {CODE, name##_exec, name##_log},
+#undef PROC_GEN_CMD
 
 static const struct proc_cmdtable_elem
 {
@@ -40,7 +37,13 @@ static const struct proc_cmdtable_elem
     void  (*log)  (proc_t *proc);
 } cmdtable[PROC_CMDCOUNT] =
 {
-    PROC_GENCODE
+    #define PROC_GEN_CMD(name, CODE, TYPE)\
+        {CODE, name##_exec, name##_log},
+
+    PROC_GEN_CODE
+
+    #undef PROC_GEN_CMD
+
     {CMD_UNKN, unkn_exec, unkn_log},
 };
 
@@ -157,11 +160,9 @@ static const char *proc_strerror (enum PROC_ERR err)
             return "Can't execute mul: not enough values in stack";
         case PROC_ERRDIV:
             return "Can't execute div: not enough values in stack";
-        case PROC_ERRJE:
-            return "Can't execute cmp: not enough values in stack";
-        case PROC_ERRJL:
-            return "Can't execute cmp: not enough values in stack";
-        case PROC_ERRJLE:
+        case PROC_ERRMOD:
+            return "Can't execute mod: not enough values in stack";
+        case PROC_ERRCMP:
             return "Can't execute cmp: not enough values in stack";
         case PROC_ERRCALL:
             return "Can't execute call: stack is full";
@@ -313,7 +314,6 @@ static int push_exec (proc_t *proc)
 
         return EXIT_FAILURE;
     }
-    
 
     if (proc->cmd.flgreg)
     {
@@ -344,17 +344,35 @@ static int add_exec (proc_t *proc)
     assert (proc);
     assert (proc->stack.spint < PROC_STKSIZE);
 
-    if (proc->stack.spint < 2)
+    if (proc->stack.spint == 0)
     {
         proc_seterr (proc, PROC_ERRADD, NULL);
 
         return EXIT_FAILURE;
     }
 
-    proc->stack.stkint[proc->stack.spint-2] += proc->stack.stkint[proc->stack.spint-1];
-    proc->stack.spint--;
+    int64_t arg = 0;
 
-    proc->code.ip++;
+    if (proc->cmd.flgreg)
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->regs[proc->cmd.arg.vu8].v64;
+
+        proc->code.ip += 2;
+    }
+    else
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->cmd.arg.v64;
+
+        proc->code.ip += 9;
+    }
+
+    proc->stack.stkint[proc->stack.spint-1] += arg;
 
     return EXIT_SUCCESS;
 }
@@ -364,18 +382,35 @@ static int sub_exec (proc_t *proc)
     assert (proc);
     assert (proc->stack.spint < PROC_STKSIZE);
 
-    if (proc->stack.spint < 2)
+    if (proc->stack.spint == 0)
     {
         proc_seterr (proc, PROC_ERRSUB, NULL);
-
 
         return EXIT_FAILURE;
     }
 
-    proc->stack.stkint[proc->stack.spint-2] -= proc->stack.stkint[proc->stack.spint-1];
-    proc->stack.spint--;
+    int64_t arg = 0;
 
-    proc->code.ip++;
+    if (proc->cmd.flgreg)
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->regs[proc->cmd.arg.vu8].v64;
+
+        proc->code.ip += 2;
+    }
+    else
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->cmd.arg.v64;
+
+        proc->code.ip += 9;
+    }
+
+    proc->stack.stkint[proc->stack.spint-1] -= arg;
 
     return EXIT_SUCCESS;
 }
@@ -385,17 +420,35 @@ static int mul_exec (proc_t *proc)
     assert (proc);
     assert (proc->stack.spint < PROC_STKSIZE);
 
-    if (proc->stack.spint < 2)
+    if (proc->stack.spint == 0)
     {
         proc_seterr (proc, PROC_ERRMUL, NULL);
 
         return EXIT_FAILURE;
     }
 
-    proc->stack.stkint[proc->stack.spint-2] *= proc->stack.stkint[proc->stack.spint-1];
-    proc->stack.spint--;
+    int64_t arg = 0;
 
-    proc->code.ip++;
+    if (proc->cmd.flgreg)
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->regs[proc->cmd.arg.vu8].v64;
+
+        proc->code.ip += 2;
+    }
+    else
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->cmd.arg.v64;
+
+        proc->code.ip += 9;
+    }
+
+    proc->stack.stkint[proc->stack.spint-1] *= arg;
 
     return EXIT_SUCCESS;
 }
@@ -405,18 +458,117 @@ static int div_exec (proc_t *proc)
     assert (proc);
     assert (proc->stack.spint < PROC_STKSIZE);
 
-    if (proc->stack.spint < 2)
+    if (proc->stack.spint == 0)
     {
         proc_seterr (proc, PROC_ERRDIV, NULL);
 
         return EXIT_FAILURE;
     }
 
-    int64_t buff = proc->stack.stkint[proc->stack.spint-2] % proc->stack.stkint[proc->stack.spint-1];
-    proc->stack.stkint[proc->stack.spint-1] = proc->stack.stkint[proc->stack.spint-2] / proc->stack.stkint[proc->stack.spint-1];
-    proc->stack.stkint[proc->stack.spint-2] = buff;
+    int64_t arg = 0;
 
-    proc->code.ip++;
+    if (proc->cmd.flgreg)
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->regs[proc->cmd.arg.vu8].v64;
+
+        proc->code.ip += 2;
+    }
+    else
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->cmd.arg.v64;
+
+        proc->code.ip += 9;
+    }
+
+    proc->stack.stkint[proc->stack.spint-1] /= arg;
+
+
+    return EXIT_SUCCESS;
+}
+
+static int mod_exec (proc_t *proc)
+{
+    assert (proc);
+
+    if (proc->stack.spint == 0)
+    {
+        proc_seterr (proc, PROC_ERRMOD, NULL);
+
+        return EXIT_FAILURE;
+    }
+
+    int64_t arg = 0;
+
+    if (proc->cmd.flgreg)
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->regs[proc->cmd.arg.vu8].v64;
+
+        proc->code.ip += 2;
+    }
+    else
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->cmd.arg.v64;
+
+        proc->code.ip += 9;
+    }
+
+    proc->stack.stkint[proc->stack.spint-1] %= arg;
+
+    return EXIT_SUCCESS;
+}
+
+static int cmp_exec (proc_t *proc)
+{
+    assert (proc);
+
+    if (proc->stack.spint == 0)
+    {
+        proc_seterr (proc, PROC_ERRCMP, NULL);
+
+        return EXIT_FAILURE;
+    }
+
+    int64_t top = proc->stack.stkint[proc->stack.spint-1];
+    int64_t arg = 0;
+
+    if (proc->cmd.flgreg)
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->regs[proc->cmd.arg.vu8].v64;
+
+        proc->code.ip += 2;
+    }
+    else
+    {
+        if (proc->cmd.flgmem)
+            arg = proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64;
+        else
+            arg = proc->cmd.arg.v64;
+
+        proc->code.ip += 9;
+    }
+    
+
+    if (top == arg)
+        proc->cmp = PROC_CMPEQ;
+    else if (top < arg)
+        proc->cmp = PROC_CMPLESS;
+    else
+        proc->cmp = PROC_CMPGREAT;
 
     return EXIT_SUCCESS;
 }
@@ -478,19 +630,10 @@ static int je_exec (proc_t *proc)
 {
     assert (proc);
 
-    if (proc->stack.spint < 2)
-    {
-        proc_seterr (proc, PROC_ERRJE, NULL);
-
-        return EXIT_FAILURE;
-    }
-
-    if (proc->stack.stkint[proc->stack.spint-1] == proc->stack.stkint[proc->stack.spint-2])
+    if (proc->cmp == PROC_CMPEQ)
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
-
-    proc->stack.spint -= 2;
 
     return EXIT_SUCCESS;
 }
@@ -499,19 +642,10 @@ static int jl_exec (proc_t *proc)
 {
     assert (proc);
 
-    if (proc->stack.spint < 2)
-    {
-        proc_seterr (proc, PROC_ERRJL, NULL);
-
-        return EXIT_FAILURE;
-    }
-
-    if (proc->stack.stkint[proc->stack.spint-2] < proc->stack.stkint[proc->stack.spint-1])
+    if (proc->cmp == PROC_CMPLESS)
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
-
-    proc->stack.spint -= 2;
 
     return EXIT_SUCCESS;
 }
@@ -520,40 +654,7 @@ static int jle_exec (proc_t *proc)
 {
     assert (proc);
 
-    if (proc->stack.spint < 2)
-    {
-        proc_seterr (proc, PROC_ERRJL, NULL);
-
-        return EXIT_FAILURE;
-    }
-
-    if (proc->stack.stkint[proc->stack.spint-2] <= proc->stack.stkint[proc->stack.spint-1])
-        proc->code.ip = proc->cmd.arg.vu64;
-    else
-        proc->code.ip += 9;
-
-    proc->stack.spint -= 2;
-
-    return EXIT_SUCCESS;
-}
-
-static int jmt_exec (proc_t *proc)
-{
-    assert (proc);
-    
-    if (proc->stack.spret == 0)
-        proc->code.ip = proc->cmd.arg.vu64;
-    else
-        proc->code.ip += 9;
-
-    return EXIT_SUCCESS;
-}
-
-static int jfl_exec (proc_t *proc)
-{
-    assert (proc);
-    
-    if (proc->stack.spret == PROC_STKSIZE)
+    if (proc->cmp == PROC_CMPLESS || proc->cmp == PROC_CMPEQ)
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
@@ -593,12 +694,22 @@ static int unkn_exec (proc_t *proc)
     return EXIT_FAILURE;
 }
 
-static void push_log (proc_t *proc)
+static void unkn_log (proc_t *proc)
 {
     assert (proc);
     assert (proc->log);
+    
+    fprintf (proc->log, "0x%016lx: unknown;\n", proc->code.ip);
+    fflush (proc->log);
+}
 
-    fprintf (proc->log, "0x%016lx: push", proc->code.ip);
+static void pushtype_log (proc_t *proc, const char *command)
+{
+    assert (proc);
+    assert (command);
+    assert (proc->log);
+
+    fprintf (proc->log, "0x%016lx: %s", proc->code.ip, command);
 
     if (proc->cmd.flgmem)
     {
@@ -623,12 +734,13 @@ static void push_log (proc_t *proc)
     fflush (proc->log);
 }
 
-static void pop_log (proc_t *proc)
+static void poptype_log (proc_t *proc, const char *command)
 {
     assert (proc);
+    assert (command);
     assert (proc->log);
 
-    fprintf (proc->log, "0x%016lx: pop", proc->code.ip);
+    fprintf (proc->log, "0x%016lx: %s", proc->code.ip, command);
 
     if (proc->cmd.flgmem)
     {
@@ -651,51 +763,38 @@ static void pop_log (proc_t *proc)
     fflush (proc->log);
 }
 
-static void unkn_log (proc_t *proc)
+static void jmptype_log (proc_t *proc, const char *command)
 {
     assert (proc);
+    assert (command);
     assert (proc->log);
-    
-    fprintf (proc->log, "0x%016lx: unknown;\n", proc->code.ip);
-    fflush (proc->log);
-}
 
-#define PROC_GEN_CMD_LOG(name)\
-static void name##_log (proc_t *proc)\
-{\
-    assert (proc);\
-    assert (proc->log);\
-\
-    fprintf (proc->log, "0x%016lx: "#name"\n", proc->code.ip);\
-    fflush (proc->log);\
-}\
-
-PROC_GEN_CMD_LOG(add)
-PROC_GEN_CMD_LOG(sub)
-PROC_GEN_CMD_LOG(mul)
-PROC_GEN_CMD_LOG(div)
-PROC_GEN_CMD_LOG(hlt)
-PROC_GEN_CMD_LOG(ret)
-PROC_GEN_CMD_LOG(in)
-PROC_GEN_CMD_LOG(out)
-
-#define PROC_GEN_JMP_LOG(name)\
-static void name##_log (proc_t *proc)\
-{\
-    assert (proc);\
-    assert (proc->log);\
-\
-    fprintf (proc->log, "0x%016lx: "#name" 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);\
+    fprintf (proc->log, "0x%016lx: %s 0x%016lx;\n", proc->code.ip, command, proc->cmd.arg.vu64);\
     fflush (proc->log);\
 }
 
-PROC_GEN_JMP_LOG(call)
-PROC_GEN_JMP_LOG(jmp)
-PROC_GEN_JMP_LOG(je)
-PROC_GEN_JMP_LOG(jl)
-PROC_GEN_JMP_LOG(jle)
-PROC_GEN_JMP_LOG(jmt)
-PROC_GEN_JMP_LOG(jfl)
+static void calltype_log (proc_t *proc, const char *command)
+{
+    return jmptype_log (proc, command);
+}
 
-#undef PROC_GEN_CMD_LOG
-#undef PROC_GEN_JMP_LOG
+static void stdtype_log (proc_t *proc, const char *command)
+{
+    assert (proc);
+    assert (command);
+    assert (proc->log);
+
+    fprintf (proc->log, "0x%016lx: %s\n", proc->code.ip, command);
+    fflush (proc->log);\
+}
+
+#define PROC_GEN_LOG(COMMAND, CODE, TYPE)\
+static void COMMAND##_log (proc_t *proc)\
+{\
+     TYPE##_log (proc, #COMMAND);\
+}
+
+#define PROC_GEN_CMD(COMMAND, CODE, TYPE)\
+    PROC_GEN_LOG(COMMAND, CODE, TYPE)
+
+PROC_GEN_CODE

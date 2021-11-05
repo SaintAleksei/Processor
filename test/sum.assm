@@ -32,20 +32,18 @@ func INARR
     pop [VARC]
 label COND1
     push [VARC]
-    push [VARB]
+    cmp [VARB]
     jl CYCLE1
     ret
 label CYCLE1
     in
     push r0
     push [VARA]
-    push [VARC]
-    add
+    add [VARC]
     pop r0
     pop [r0]
     push [VARC]
-    push 1
-    add
+    add 1
     pop [VARC]
     jmp COND1
 
@@ -58,20 +56,17 @@ func SUMARR
     pop r128
 label COND2
     push [VARC]
-    push [VARB]
+    cmp [VARB]
     jl CYCLE2
     ret
 label CYCLE2
     push [VARA]
-    push [VARC]
-    add
+    add [VARC]
     pop r0
     push [r0]
-    push r128
-    add
+    add r128
     pop r128 
     push [VARC]
-    push 1
-    add
+    add 1
     pop [VARC]
     jmp COND2

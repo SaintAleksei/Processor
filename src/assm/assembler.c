@@ -30,15 +30,18 @@ static int res_handler   (assm_t *assm);
 static int label_handler (assm_t *assm);
 static int func_handler  (assm_t *assm);
 
-#define PROC_GENCMD(name, CODE, ...)\
+static int pushtype_handler (assm_t *assm, enum PROC_CMDCODES code);
+static int poptype_handler  (assm_t *assm, enum PROC_CMDCODES code);
+static int jmptype_handler  (assm_t *assm, enum PROC_CMDCODES code);
+static int calltype_handler (assm_t *assm, enum PROC_CMDCODES code);
+static int stdtype_handler  (assm_t *assm, enum PROC_CMDCODES code);
+
+#define PROC_GEN_CMD(name, CODE, TYPE)\
     static int name##_##handler (assm_t *assm);
 
-PROC_GENCODE
+PROC_GEN_CODE
 
-#undef PROC_GENCMD
-
-#define PROC_GENCMD(name, CODE, ...)\
-    {#name, name##_##handler},
+#undef PROC_GEN_CMD
 
 struct handler_table_elem
 {
@@ -46,14 +49,17 @@ struct handler_table_elem
     int       (*handler) (assm_t *assm);
 } cmdtable[PROC_CMDCOUNT] =
 {
-    PROC_GENCODE
+    #define PROC_GEN_CMD(name, CODE, TYPE)\
+        {#name, name##_##handler},
+
+    PROC_GEN_CODE
+
+    #undef PROC_GEN_CMD
+
     {"res"  , res_handler  },
     {"label", label_handler},
     {"func" , func_handler },
 };
-
-#undef PROC_GENCMD
-
 
 int assm_create (assm_t *assm, const char *name)
 {
@@ -96,6 +102,7 @@ int assm_create (assm_t *assm, const char *name)
         if (fclose (stream) == EOF)
             break;
 
+        assm->text.wordsize = 1;
         for (size_t i = 0; i < assm->text.buffsize; i++) 
             if (isspace (assm->text.buff[i]) )
             {
@@ -578,7 +585,7 @@ static int res_handler (assm_t *assm)
     return EXIT_SUCCESS;
 }
 
-static int push_handler (assm_t *assm)
+static int pushtype_handler (assm_t *assm, enum PROC_CMDCODES code)
 {
     assert (assm);
     assert (!assm->error.err);
@@ -604,7 +611,7 @@ static int push_handler (assm_t *assm)
 
     if (ret == 2 && symbol == ']' && count == len)
     {
-        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = CMD_PUSH | CMD_FLGREG | CMD_FLGMEM;
+        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = code | CMD_FLGREG | CMD_FLGMEM;
         *( (uint8_t *) (assm->code.data + assm->code.ip + 1) ) = arg.vu8;
 
         assm->code.ip += 2;
@@ -613,14 +620,14 @@ static int push_handler (assm_t *assm)
         return EXIT_SUCCESS;
     }
 
-    ret = sscanf (word, "[%lu%c%n", &arg.vu64, &symbol, &count);
+    ret = sscanf (word, "[%lu%c%n", &arg.vu64, &symbol, &count);\
 
     if (ret == 2 && symbol == ']' && count == len)
     {
         if (arg.vu64 >= PROC_MEMSIZE)
             ASSM_ERR (ASSM_ERRARG, "Not enough memory");
 
-        *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = CMD_PUSH | CMD_FLGMEM;
+        *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = code | CMD_FLGMEM;
         *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = arg.vu64;
 
         assm->code.ip += 9;
@@ -628,12 +635,12 @@ static int push_handler (assm_t *assm)
 
         return EXIT_SUCCESS;
     }
-    
+
     ret = sscanf (word, "r%hhu%n", &arg.vu8, &count);
 
     if (ret == 1 && count == len)
     {
-        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = CMD_PUSH | CMD_FLGREG;
+        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = code | CMD_FLGREG;
         *( (uint8_t *) (assm->code.data + assm->code.ip + 1) ) = arg.vu8;
 
         assm->code.ip += 2;
@@ -646,7 +653,7 @@ static int push_handler (assm_t *assm)
 
     if (ret == 1 && count == len)
     {
-        *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = CMD_PUSH;
+        *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = code;
         *( (int64_t  *) (assm->code.data + assm->code.ip + 1) ) = arg.v64;
 
         assm->code.ip += 9;
@@ -665,17 +672,17 @@ static int push_handler (assm_t *assm)
 
             if (!strncmp (assm->restable.data[i].name, name, STRSIZE) )
             {
-                *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = CMD_PUSH | CMD_FLGMEM;
+                *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = code | CMD_FLGMEM;
                 *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = assm->restable.data[i].addr;
 
                 assm->code.ip += 9;
                 assm->text.wordid++;
-                
+
                 return EXIT_SUCCESS;
             }
         }
 
-        ASSM_ERR (ASSM_ERRARG, "Unknown name");
+        ASSM_ERR (ASSM_ERRARG, "Unknown name");\
     }
 
     ret = sscanf (word, "%[a-zA-Z0-9]%n", name, &count);
@@ -688,12 +695,12 @@ static int push_handler (assm_t *assm)
 
             if (!strncmp (assm->restable.data[i].name, name, STRSIZE) )
             {
-                *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = CMD_PUSH;
+                *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = code;
                 *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = assm->restable.data[i].addr;
 
                 assm->code.ip += 9;
                 assm->text.wordid++;
-                
+
                 return EXIT_SUCCESS;
             }
         }
@@ -704,7 +711,8 @@ static int push_handler (assm_t *assm)
     ASSM_ERR (ASSM_ERRARG, "Bad syntax");
 }
 
-static int pop_handler (assm_t *assm)
+
+static int poptype_handler (assm_t *assm, enum PROC_CMDCODES code)
 {
     assert (assm);
     assert (!assm->error.err);
@@ -730,7 +738,7 @@ static int pop_handler (assm_t *assm)
 
     if (ret == 2 && symbol == ']' && count == len)
     {
-        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = CMD_POP | CMD_FLGREG | CMD_FLGMEM;
+        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = code | CMD_FLGREG | CMD_FLGMEM;
         *( (uint8_t *) (assm->code.data + assm->code.ip + 1) ) = arg.vu8;
 
         assm->code.ip += 2;
@@ -746,7 +754,7 @@ static int pop_handler (assm_t *assm)
         if (arg.vu64 >= PROC_MEMSIZE)
             ASSM_ERR (ASSM_ERRARG, "Not enough memory");
 
-        *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = CMD_POP | CMD_FLGMEM;
+        *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = code | CMD_FLGMEM;
         *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = arg.vu64;
 
         assm->code.ip += 9;
@@ -754,18 +762,18 @@ static int pop_handler (assm_t *assm)
 
         return EXIT_SUCCESS;
     }
-    
+
     ret = sscanf (word, "r%hhu%n", &arg.vu8, &count);
 
     if (ret == 1 && count == len)
     {
-        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = CMD_POP | CMD_FLGREG;
+        *( (uint8_t *) (assm->code.data + assm->code.ip) )     = code | CMD_FLGREG;
         *( (uint8_t *) (assm->code.data + assm->code.ip + 1) ) = arg.vu8;
 
         assm->code.ip += 2;
         assm->text.wordid++;
 
-        return EXIT_SUCCESS;
+       return EXIT_SUCCESS;
     }
 
     ret = sscanf (word, "[%[a-zA-Z0-9]%c%n", name, &symbol, &count);
@@ -778,12 +786,12 @@ static int pop_handler (assm_t *assm)
 
             if (!strncmp (assm->restable.data[i].name, name, STRSIZE) )
             {
-                *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = CMD_POP | CMD_FLGMEM;
+                *( (uint8_t *)  (assm->code.data + assm->code.ip) )     = code | CMD_FLGMEM;
                 *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = assm->restable.data[i].addr;
 
                 assm->code.ip += 9;
                 assm->text.wordid++;
-                
+
                 return EXIT_SUCCESS;
             }
         }
@@ -791,13 +799,53 @@ static int pop_handler (assm_t *assm)
         ASSM_ERR (ASSM_ERRARG, "Unknown name");
     }
 
+    *( (uint8_t *)  (assm->code.data + assm->code.ip) ) = code;
+
     assm->code.ip += 1;
+
+    return EXIT_SUCCESS;
+}
+
+static int jmptype_handler (assm_t *assm, enum PROC_CMDCODES code)
+{
+    assert (assm);
+    assert (!assm->error.err);
+    assert (assm->text.word);
+    assert (assm->text.wordid + 1< assm->text.wordsize);
+    assert (assm->text.word[assm->text.wordid+1].str);
+    assert (assm->labeltable.data);
+    assert (assm->labeltable.size < assm->labeltable.capacity);
+    assert (assm->code.data);
+    assert (assm->code.ip + 0x10 < assm->code.size);
+
+    assm->text.wordid++;
+
+    for (size_t i = 0; i < assm->labeltable.size; i++)
+    {
+        assert (assm->labeltable.data[i].name);
+
+        if (!strncmp (assm->labeltable.data[i].name, assm->text.word[assm->text.wordid].str, STRSIZE) )
+        {
+            *( (uint8_t  *) (assm->code.data + assm->code.ip)     ) = code;
+            *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = assm->labeltable.data[i].ip;
+
+            assm->code.ip += 9;
+            assm->text.wordid++;
+
+            return EXIT_SUCCESS;
+        }
+    }
+
+    if (assm->passnum == ASSM_PASS2)
+        ASSM_ERR (ASSM_ERRARG, "Unknown name");
+
+    assm->code.ip += 9;
     assm->text.wordid++;
 
     return EXIT_SUCCESS;
 }
 
-static int call_handler (assm_t *assm)
+static int calltype_handler (assm_t *assm, enum PROC_CMDCODES code)
 {
     assert (assm);
     assert (!assm->error.err);
@@ -817,7 +865,7 @@ static int call_handler (assm_t *assm)
 
         if (!strncmp (assm->functable.data[i].name, assm->text.word[assm->text.wordid].str, STRSIZE) )
         {
-            *( (uint8_t  *) (assm->code.data + assm->code.ip)     ) = CMD_CALL;
+            *( (uint8_t  *) (assm->code.data + assm->code.ip)     ) = code;
             *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = assm->functable.data[i].ip;
 
             assm->code.ip += 9;
@@ -836,78 +884,28 @@ static int call_handler (assm_t *assm)
     return EXIT_SUCCESS;
 }
 
-#define ASSM_GEN_CMD_HANDLER(name, CODE)\
-static int name##_handler (assm_t *assm)\
-{\
-    assert (assm);\
-    assert (!assm->error.err);\
-    assert (assm->code.data);\
-    assert (assm->code.ip + 0x10 < assm->code.size);\
-\
-    *( (uint8_t *) (assm->code.data + assm->code.ip) ) = CODE;\
-\
-    assm->text.wordid += 1;\
-    assm->code.ip     += 1;\
-\
-    return EXIT_SUCCESS;\
+static int stdtype_handler (assm_t *assm, enum PROC_CMDCODES code)
+{
+    assert (assm);
+    assert (!assm->error.err);
+    assert (assm->code.data);
+    assert (assm->code.ip + 0x10 < assm->code.size);
+
+    *( (uint8_t *) (assm->code.data + assm->code.ip) ) = code;
+
+    assm->text.wordid += 1;
+    assm->code.ip     += 1;
+
+    return EXIT_SUCCESS;
 }
 
-ASSM_GEN_CMD_HANDLER (add, CMD_ADD)
-ASSM_GEN_CMD_HANDLER (sub, CMD_SUB)
-ASSM_GEN_CMD_HANDLER (mul, CMD_MUL)
-ASSM_GEN_CMD_HANDLER (div, CMD_DIV)
-ASSM_GEN_CMD_HANDLER (hlt, CMD_HLT)
-ASSM_GEN_CMD_HANDLER (ret, CMD_RET)
-ASSM_GEN_CMD_HANDLER (in , CMD_IN)
-ASSM_GEN_CMD_HANDLER (out, CMD_OUT)
-
-#define ASSM_GEN_JMP_HANDLER(command, CODE)\
+#define ASSM_GEN_HANDLER(command, CODE, type)\
 static int command##_handler (assm_t *assm)\
 {\
-    assert (assm);\
-    assert (!assm->error.err);\
-    assert (assm->text.word);\
-    assert (assm->text.wordid + 1< assm->text.wordsize);\
-    assert (assm->text.word[assm->text.wordid+1].str);\
-    assert (assm->labeltable.data);\
-    assert (assm->labeltable.size < assm->labeltable.capacity);\
-    assert (assm->code.data);\
-    assert (assm->code.ip + 0x10 < assm->code.size);\
-\
-    assm->text.wordid++;\
-\
-    for (size_t i = 0; i < assm->labeltable.size; i++)\
-    {\
-        assert (assm->labeltable.data[i].name);\
-\
-        if (!strncmp (assm->labeltable.data[i].name, assm->text.word[assm->text.wordid].str, STRSIZE) )\
-        {\
-            *( (uint8_t  *) (assm->code.data + assm->code.ip)     ) = CODE;\
-            *( (uint64_t *) (assm->code.data + assm->code.ip + 1) ) = assm->labeltable.data[i].ip;\
-\
-            assm->code.ip += 9;\
-            assm->text.wordid++;\
-\
-            return EXIT_SUCCESS;\
-        }\
-    }\
-\
-    if (assm->passnum == ASSM_PASS2)\
-        ASSM_ERR (ASSM_ERRARG, "Unknown name");\
-\
-    assm->code.ip += 9;\
-    assm->text.wordid++;\
-\
-    return EXIT_SUCCESS;\
+    return type##_handler (assm, CODE);\
 }
 
-ASSM_GEN_JMP_HANDLER (jmp, CMD_JMP)
-ASSM_GEN_JMP_HANDLER (je , CMD_JE )
-ASSM_GEN_JMP_HANDLER (jl , CMD_JL )
-ASSM_GEN_JMP_HANDLER (jle, CMD_JLE)
-ASSM_GEN_JMP_HANDLER (jmt, CMD_JMT)
-ASSM_GEN_JMP_HANDLER (jfl, CMD_JFL)
+#define PROC_GEN_CMD(command, CODE, TYPE)\
+    ASSM_GEN_HANDLER(command, CODE, TYPE)
 
-#undef ASSM_ERR
-#undef ASSM_GEN_JMP_HANDLER
-#undef ASSM_GEN_CMD_HANDLER
+PROC_GEN_CODE
