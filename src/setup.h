@@ -3,30 +3,37 @@
 
 #include <stdint.h>
 
-enum CMD_CODES
+#define PROC_GENCODE\
+    PROC_GENCMD(push, CMD_PUSH)\
+    PROC_GENCMD(pop , CMD_POP )\
+    PROC_GENCMD(add , CMD_ADD )\
+    PROC_GENCMD(sub , CMD_SUB )\
+    PROC_GENCMD(mul , CMD_MUL )\
+    PROC_GENCMD(div , CMD_DIV )\
+    PROC_GENCMD(ret , CMD_RET )\
+    PROC_GENCMD(hlt , CMD_HLT )\
+    PROC_GENCMD(jmp , CMD_JMP )\
+    PROC_GENCMD(call, CMD_CALL)\
+    PROC_GENCMD(je  , CMD_JE  )\
+    PROC_GENCMD(jl  , CMD_JL  )\
+    PROC_GENCMD(jle , CMD_JLE )\
+    PROC_GENCMD(jmt , CMD_JMT )\
+    PROC_GENCMD(jfl , CMD_JFL )\
+    PROC_GENCMD(in  , CMD_IN  )\
+    PROC_GENCMD(out , CMD_OUT )\
+
+#define PROC_GENCMD(cmd, CODE)\
+    CODE,
+
+enum PROC_CMDCODES
 {
-    CMD_HLT,
-    CMD_ADD,
-    CMD_SUB,
-    CMD_MUL,
-    CMD_DIV,
-    CMD_CMP,
-    CMD_RET,
-    CMD_JMP,
-    CMD_CALL,
-    CMD_JE,
-    CMD_JL,
-    CMD_JLE,
-    CMD_JMT,
-    CMD_JFL,
-    CMD_PUSH,
-    CMD_POP,
-    CMD_IN,
-    CMD_OUT,
+    PROC_GENCODE
     CMD_UNKN = 0xFC,
 };
 
-enum CMD_FLAGS
+#undef PROC_GENCMD
+
+enum PROC_CMDFLAGS
 {
     CMD_FLGREG = 0x80,
     CMD_FLGMEM = 0x40,

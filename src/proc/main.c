@@ -27,7 +27,6 @@ int main (int argc, char **argv)
     }
     while (0);
 
-    fprintf (stderr, "%s: ", argv[0]);
     proc_error (&proc);
 
     proc_delete (&proc);

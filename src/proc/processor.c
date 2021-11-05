@@ -13,71 +13,34 @@ static int  cmd_read  (proc_t *proc);
 static int  cmd_exec  (proc_t *proc);
 static void cmd_log   (proc_t *proc);
 
-static int push_exec (proc_t *proc);
-static int pop_exec  (proc_t *proc);
-static int add_exec  (proc_t *proc); 
-static int sub_exec  (proc_t *proc); 
-static int mul_exec  (proc_t *proc); 
-static int cmp_exec  (proc_t *proc);
-static int div_exec  (proc_t *proc); 
-static int ret_exec  (proc_t *proc); 
-static int hlt_exec  (proc_t *proc); 
-static int call_exec (proc_t *proc); 
-static int jmp_exec  (proc_t *proc); 
-static int je_exec   (proc_t *proc); 
-static int jl_exec   (proc_t *proc); 
-static int jle_exec  (proc_t *proc); 
-static int jmt_exec  (proc_t *proc);
-static int jfl_exec  (proc_t *proc);
-static int in_exec   (proc_t *proc);
-static int out_exec  (proc_t *proc);
-static int unkn_exec (proc_t *proc);
+static int  unkn_exec (proc_t *proc);
+static void unkn_log  (proc_t *proc);
 
-static void push_log (proc_t *proc);
-static void pop_log  (proc_t *proc);
-static void add_log  (proc_t *proc);
-static void sub_log  (proc_t *proc);
-static void mul_log  (proc_t *proc);
-static void div_log  (proc_t *proc);
-static void cmp_log  (proc_t *proc);
-static void hlt_log  (proc_t *proc);
-static void ret_log  (proc_t *proc);
-static void in_log   (proc_t *proc);
-static void out_log  (proc_t *proc);
-static void call_log (proc_t *proc);
-static void jmp_log  (proc_t *proc);
-static void je_log   (proc_t *proc);
-static void jl_log   (proc_t *proc);
-static void jle_log  (proc_t *proc);
-static void jmt_log  (proc_t *proc);
-static void jfl_log  (proc_t *proc);
-static void unkn_log (proc_t *proc);
+#define PROC_GENCMD(name, CODE)\
+static int name##_exec (proc_t *proc);
+
+PROC_GENCODE
+
+#undef PROC_GENCMD
+
+#define PROC_GENCMD(name, CODE)\
+static void name##_log (proc_t *proc);
+
+PROC_GENCODE
+
+#undef PROC_GENCMD
+
+#define PROC_GENCMD(name, CODE)\
+    {CODE, name##_exec, name##_log},
 
 static const struct proc_cmdtable_elem
 {
-    uint8_t code;
+    enum PROC_CMDCODES code;
     int   (*exec) (proc_t *proc);
     void  (*log)  (proc_t *proc);
 } cmdtable[PROC_CMDCOUNT] =
 {
-    {CMD_PUSH, push_exec, push_log},
-    {CMD_POP , pop_exec , pop_log },
-    {CMD_ADD , add_exec , add_log },
-    {CMD_SUB , sub_exec , sub_log },
-    {CMD_MUL , mul_exec , mul_log },
-    {CMD_DIV , div_exec , div_log },
-    {CMD_CMP , cmp_exec , cmp_log },
-    {CMD_HLT , hlt_exec , hlt_log },
-    {CMD_RET , ret_exec , ret_log },
-    {CMD_IN  , in_exec  , in_log  },
-    {CMD_OUT , out_exec , out_log },
-    {CMD_CALL, call_exec, call_log},
-    {CMD_JMP , jmp_exec , jmp_log },
-    {CMD_JE  , je_exec  , je_log  },
-    {CMD_JL  , jl_exec  , jl_log  },
-    {CMD_JLE , jle_exec , jle_log },
-    {CMD_JMT , jmt_exec , jmt_log },
-    {CMD_JFL , jfl_exec , jfl_log },
+    PROC_GENCODE
     {CMD_UNKN, unkn_exec, unkn_log},
 };
 
@@ -194,7 +157,11 @@ static const char *proc_strerror (enum PROC_ERR err)
             return "Can't execute mul: not enough values in stack";
         case PROC_ERRDIV:
             return "Can't execute div: not enough values in stack";
-        case PROC_ERRCMP:
+        case PROC_ERRJE:
+            return "Can't execute cmp: not enough values in stack";
+        case PROC_ERRJL:
+            return "Can't execute cmp: not enough values in stack";
+        case PROC_ERRJLE:
             return "Can't execute cmp: not enough values in stack";
         case PROC_ERRCALL:
             return "Can't execute call: stack is full";
@@ -225,7 +192,6 @@ static void proc_seterr (proc_t *proc, enum PROC_ERR err, const char *str)
     proc->error.str = str;
     proc->status    = PROC_STERR;
 }
-
 
 int proc_run (proc_t *proc)
 {
@@ -455,30 +421,6 @@ static int div_exec (proc_t *proc)
     return EXIT_SUCCESS;
 }
 
-static int cmp_exec (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->stack.spint < PROC_STKSIZE);
-
-    if (proc->stack.spint < 2)
-    {
-        proc_seterr (proc, PROC_ERRCMP, NULL);
-
-        return EXIT_FAILURE;
-    }
-
-    if (proc->stack.stkint[proc->stack.spint-2] == proc->stack.stkint[proc->stack.spint-1] )
-        proc->cmp = PROC_CMPEQ;
-    else if (proc->stack.stkint[proc->stack.spint-2] < proc->stack.stkint[proc->stack.spint-1] )
-        proc->cmp = PROC_CMPLESS;
-    else
-        proc->cmp = PROC_CMPGREAT;
-
-    proc->code.ip++;
-
-    return EXIT_SUCCESS;
-}
-
 static int ret_exec (proc_t *proc)
 {
     assert (proc);
@@ -536,10 +478,19 @@ static int je_exec (proc_t *proc)
 {
     assert (proc);
 
-    if (proc->cmp == PROC_CMPEQ)
+    if (proc->stack.spint < 2)
+    {
+        proc_seterr (proc, PROC_ERRJE, NULL);
+
+        return EXIT_FAILURE;
+    }
+
+    if (proc->stack.stkint[proc->stack.spint-1] == proc->stack.stkint[proc->stack.spint-2])
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
+
+    proc->stack.spint -= 2;
 
     return EXIT_SUCCESS;
 }
@@ -548,10 +499,19 @@ static int jl_exec (proc_t *proc)
 {
     assert (proc);
 
-    if (proc->cmp == PROC_CMPLESS)
+    if (proc->stack.spint < 2)
+    {
+        proc_seterr (proc, PROC_ERRJL, NULL);
+
+        return EXIT_FAILURE;
+    }
+
+    if (proc->stack.stkint[proc->stack.spint-2] < proc->stack.stkint[proc->stack.spint-1])
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
+
+    proc->stack.spint -= 2;
 
     return EXIT_SUCCESS;
 }
@@ -560,10 +520,19 @@ static int jle_exec (proc_t *proc)
 {
     assert (proc);
 
-    if (proc->cmp == PROC_CMPLESS || proc->cmp == PROC_CMPEQ)
+    if (proc->stack.spint < 2)
+    {
+        proc_seterr (proc, PROC_ERRJL, NULL);
+
+        return EXIT_FAILURE;
+    }
+
+    if (proc->stack.stkint[proc->stack.spint-2] <= proc->stack.stkint[proc->stack.spint-1])
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
+
+    proc->stack.spint -= 2;
 
     return EXIT_SUCCESS;
 }
@@ -584,7 +553,7 @@ static int jfl_exec (proc_t *proc)
 {
     assert (proc);
     
-    if (proc->stack.spret >= PROC_STKSIZE)
+    if (proc->stack.spret == PROC_STKSIZE)
         proc->code.ip = proc->cmd.arg.vu64;
     else
         proc->code.ip += 9;
@@ -634,11 +603,13 @@ static void push_log (proc_t *proc)
     if (proc->cmd.flgmem)
     {
         if (proc->cmd.flgreg)
-            fprintf (proc->log, " [r%hhu] = [0x%016lx];\n", 
-                     proc->cmd.arg.vu8, proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE);
+            fprintf (proc->log, " [r%hhu] = [0x%016lx] = %ld;\n", 
+                     proc->cmd.arg.vu8, proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE,
+                     proc->memory[proc->regs[proc->cmd.arg.vu8].vu64 % PROC_MEMSIZE].v64);
         else
-            fprintf (proc->log, " [0x%016lx];\n", 
-                     proc->cmd.arg.vu64 % PROC_MEMSIZE);
+            fprintf (proc->log, " [0x%016lx] = %ld;\n", 
+                     proc->cmd.arg.vu64 % PROC_MEMSIZE,
+                     proc->memory[proc->cmd.arg.vu64 % PROC_MEMSIZE].v64);
     }
     else
     {
@@ -671,156 +642,12 @@ static void pop_log (proc_t *proc)
     else
     {
         if (proc->cmd.flgreg)
-            fprintf (proc->log, " r%hhu = %ld;\n",
-                     proc->cmd.arg.vu8, proc->regs[proc->cmd.arg.vu8].v64);
+            fprintf (proc->log, " r%hhu;\n",
+                     proc->cmd.arg.vu8);
         else
             fprintf (proc->log, ";\n");
     }
 
-    fflush (proc->log);
-}
-
-static void add_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: add;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void sub_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: sub;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void mul_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: mul;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void div_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: div;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void cmp_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: cmp;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void ret_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: ret;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void hlt_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: hlt;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void in_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: in;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void out_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: out;\n", proc->code.ip);
-    fflush (proc->log);
-}
-
-static void jmp_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: jmp 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
-    fflush (proc->log);
-}
-
-static void call_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: call 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
-    fflush (proc->log);
-}
-
-static void je_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: je 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
-    fflush (proc->log);
-}
-
-static void jl_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: jl 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
-    fflush (proc->log);
-}
-
-static void jle_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: jle 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
-    fflush (proc->log);
-}
-
-static void jmt_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: jmt 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
-    fflush (proc->log);
-}
-
-static void jfl_log (proc_t *proc)
-{
-    assert (proc);
-    assert (proc->log);
-
-    fprintf (proc->log, "0x%016lx: jfl 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);
     fflush (proc->log);
 }
 
@@ -832,3 +659,43 @@ static void unkn_log (proc_t *proc)
     fprintf (proc->log, "0x%016lx: unknown;\n", proc->code.ip);
     fflush (proc->log);
 }
+
+#define PROC_GEN_CMD_LOG(name)\
+static void name##_log (proc_t *proc)\
+{\
+    assert (proc);\
+    assert (proc->log);\
+\
+    fprintf (proc->log, "0x%016lx: "#name"\n", proc->code.ip);\
+    fflush (proc->log);\
+}\
+
+PROC_GEN_CMD_LOG(add)
+PROC_GEN_CMD_LOG(sub)
+PROC_GEN_CMD_LOG(mul)
+PROC_GEN_CMD_LOG(div)
+PROC_GEN_CMD_LOG(hlt)
+PROC_GEN_CMD_LOG(ret)
+PROC_GEN_CMD_LOG(in)
+PROC_GEN_CMD_LOG(out)
+
+#define PROC_GEN_JMP_LOG(name)\
+static void name##_log (proc_t *proc)\
+{\
+    assert (proc);\
+    assert (proc->log);\
+\
+    fprintf (proc->log, "0x%016lx: "#name" 0x%016lx;\n", proc->code.ip, proc->cmd.arg.vu64);\
+    fflush (proc->log);\
+}
+
+PROC_GEN_JMP_LOG(call)
+PROC_GEN_JMP_LOG(jmp)
+PROC_GEN_JMP_LOG(je)
+PROC_GEN_JMP_LOG(jl)
+PROC_GEN_JMP_LOG(jle)
+PROC_GEN_JMP_LOG(jmt)
+PROC_GEN_JMP_LOG(jfl)
+
+#undef PROC_GEN_CMD_LOG
+#undef PROC_GEN_JMP_LOG

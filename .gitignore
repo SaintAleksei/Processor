@@ -2,3 +2,5 @@
 *.d
 *.tmp
 *.swp
+*.log
+*.proc

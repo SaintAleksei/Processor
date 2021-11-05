@@ -1,0 +1,40 @@
+in
+push r0
+call FACTORIAL
+push r128
+pop r0
+out
+hlt
+
+func FACTORIAL
+    pop r1
+    push r1
+    push 0
+    jl L1
+    push r1
+    push 0
+    je L2
+    push r1
+    push 1
+    je L3
+    push r1
+    push r1
+    push 1
+    sub
+    call FACTORIAL
+    push r128    
+    mul
+    pop r128
+    ret
+label L1
+    push -1
+    pop r128
+    ret
+label L2
+    push 0
+    pop r128
+    ret
+label L3
+    push 1
+    pop r128
+    ret

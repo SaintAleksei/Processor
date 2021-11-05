@@ -1,0 +1,77 @@
+res ARR:10
+res VARA:1
+res VARB:1
+res VARC:1
+push ARR
+pop r0
+out
+push VARA
+pop r0
+out
+push VARB
+pop r0
+out
+push VARC
+pop r0
+out
+push 10
+push ARR
+call INARR
+push 10
+push ARR
+call SUMARR
+push r128
+pop r0
+out
+hlt
+
+func INARR
+    pop [VARA]
+    pop [VARB]
+    push 0
+    pop [VARC]
+label COND1
+    push [VARC]
+    push [VARB]
+    jl CYCLE1
+    ret
+label CYCLE1
+    in
+    push r0
+    push [VARA]
+    push [VARC]
+    add
+    pop r0
+    pop [r0]
+    push [VARC]
+    push 1
+    add
+    pop [VARC]
+    jmp COND1
+
+func SUMARR
+    pop [VARA]
+    pop [VARB]
+    push 0
+    pop [VARC]
+    push 0
+    pop r128
+label COND2
+    push [VARC]
+    push [VARB]
+    jl CYCLE2
+    ret
+label CYCLE2
+    push [VARA]
+    push [VARC]
+    add
+    pop r0
+    push [r0]
+    push r128
+    add
+    pop r128 
+    push [VARC]
+    push 1
+    add
+    pop [VARC]
+    jmp COND2

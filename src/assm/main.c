@@ -23,13 +23,14 @@ int main (int argc, char **argv)
             break;
 
         assm_delete (&assm);
+
         return EXIT_SUCCESS;
     }
     while (0);
 
-    fprintf (stderr, "%s: ", argv[0]);
     assm_error (&assm);
 
     assm_delete (&assm);
+
     return EXIT_FAILURE;
 }
